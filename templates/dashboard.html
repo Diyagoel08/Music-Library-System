@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Harmony | {{ page_title if page_title else 'Dashboard' }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>🎵 Harmony</h2>
+    <nav>
+        <a href="{{ url_for('dashboard') }}" class="{{ 'active' if page_title == 'Your Music Collection' or not page_title else '' }}">
+            <i class="fas fa-home"></i> Home
+        </a>
+        
+        <a href="{{ url_for('song.liked_list') }}" class="{{ 'active' if page_title == 'Liked Songs' else '' }}">
+            <i class="fas fa-heart"></i> Liked Songs
+        </a>
+
+        <hr style="border: 0.5px solid rgba(255,255,255,0.1); margin: 15px 0;">
+        
+        <p style="font-size: 0.75rem; text-transform: uppercase; color: #A3C1DA; margin-left: 15px; margin-bottom: 10px;">Your Playlists</p>
+        <div id="playlistList">
+            {% for pl in playlists %}
+            <a href="{{ url_for('playlist.view', playlist_id=pl.id) }}" class="{{ 'active' if 'Playlist: ' + pl.name == page_title else '' }}">
+                <i class="fas fa-list-ul"></i> {{ pl.name }}
+            </a>
+            {% endfor %}
+        </div>
+
+        <a href="javascript:void(0)" onclick="togglePlaylistForm()" style="color: #007BA7; margin-top: 10px;">
+            <i class="fas fa-plus-circle"></i> Create Playlist
+        </a>
+
+        <div id="playlistForm" style="display:none; padding: 10px;">
+            <form action="{{ url_for('playlist.create') }}" method="POST">
+                <input type="text" name="playlist_name" placeholder="Playlist Name..." required 
+                       style="width: 100%; padding: 8px; border-radius: 8px; border: none; margin-bottom: 5px;">
+                <button type="submit" class="btn-upload" style="padding: 5px; width: 100%; font-size: 0.8rem;">Create</button>
+            </form>
+        </div>
+
+        <a href="{{ url_for('auth.logout') }}" style="margin-top: auto; color: #ff4d4d;">
+            <i class="fas fa-sign-out-alt"></i> Logout
+        </a>
+    </nav>
+</div>
+
+<div class="main-content">
+    <header>
+        <div class="search-bar">
+            <i class="fas fa-search"></i>
+            <input type="text" id="search" placeholder="Search for Arijit, Darshan, Zayn..." onkeyup="searchSongs()">
+        </div>
+        <div class="user-profile">
+            <span style="margin-right: 10px; font-weight: bold; color: var(--accent-dark-pink);">{{ username }}</span>
+            <i class="fas fa-user-circle" style="font-size: 2rem; color: var(--accent-pink);"></i>
+        </div>
+    </header>
+
+    <section class="upload-section">
+        <div class="glass-card">
+            <h3><i class="fas fa-cloud-upload-alt"></i> Upload New Music</h3>
+            <form id="songForm" action="{{ url_for('song.upload_song') }}" method="POST" enctype="multipart/form-data">
+                <div class="form-row">
+                    <input type="text" name="title" placeholder="Song Title" required>
+                    <input type="text" name="artist" placeholder="Artist Name" required>
+                </div>
+                <div class="file-upload">
+                    <label for="file"><i class="fas fa-file-audio"></i> Choose MP3 File</label>
+                    <input type="file" name="file" id="file" accept=".mp3" required onchange="displayFileName()">
+                    <span id="fileNameDisplay">No file selected</span>
+                </div>
+                <button type="submit" class="btn-upload">Add to My Library</button>
+            </form>
+        </div>
+    </section>
+
+    <section class="library">
+        <h3 style="color: var(--accent-dark-pink); margin-bottom: 20px;">{{ page_title if page_title else 'Your Music Collection' }}</h3>
+        
+        <div id="songGrid" class="grid">
+            {% for song in songs %}
+            <div class="song-card">
+                <div class="card-img" onclick="playMusic('{{ url_for('static', filename=song.file_path) }}', '{{ song.title }}', '{{ song.artist }}')">
+                    <i class="fas fa-compact-disc fa-spin-hover"></i>
+                    <div class="play-btn"><i class="fas fa-play"></i></div>
+                </div>
+                <div class="card-info" style="display: flex; justify-content: space-between; align-items: center; padding-top: 10px;">
+                    <div onclick="playMusic('{{ url_for('static', filename=song.file_path) }}', '{{ song.title }}', '{{ song.artist }}')" style="cursor: pointer; flex: 1;">
+                        <strong>{{ song.title }}</strong>
+                        <p style="font-size: 0.8rem; color: var(--text-light);">{{ song.artist }}</p>
+                    </div>
+                    
+                    <form action="{{ url_for('song.toggle_like', song_id=song.id) }}" method="POST" style="margin-left: 10px;">
+                        <button type="submit" style="background: none; border: none; cursor: pointer; outline: none;">
+                            {% if song.is_liked %}
+                                <i class="fas fa-heart" style="color: #ff4d4d; font-size: 1.2rem;"></i>
+                            {% else %}
+                                <i class="far fa-heart" style="color: #007BA7; font-size: 1.2rem;"></i>
+                            {% endif %}
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <div id="noResults" style="display: none; grid-column: 1/-1; text-align: center; padding: 40px;">
+                <i class="fas fa-search-minus" style="font-size: 3rem; color: var(--sidebar-pink);"></i>
+                <p style="margin-top: 15px; color: var(--text-light);">No songs found in this section.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<footer id="player">
+    <div class="current-track">
+        <div class="track-text">
+            <p id="nowPlayingTitle">Select a song to play</p>
+            <p id="nowPlayingArtist">Harmony Music Player</p>
+        </div>
+    </div>
+    <div class="player-controls">
+        <audio id="audioPlayer" controls style="width: 500px;"></audio>
+    </div>
+</footer>
+
+<script>
+    function displayFileName() {
+        const input = document.getElementById('file');
+        const display = document.getElementById('fileNameDisplay');
+        display.innerText = input.files[0] ? input.files[0].name : "No file selected";
+    }
+
+    function togglePlaylistForm() {
+        const form = document.getElementById('playlistForm');
+        form.style.display = form.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function playMusic(path, title, artist) {
+        const audio = document.getElementById('audioPlayer');
+        audio.src = path;
+        document.getElementById('nowPlayingTitle').innerText = title;
+        document.getElementById('nowPlayingArtist').innerText = artist;
+        audio.play();
+        
+        // Visual feedback
+        document.querySelectorAll('.song-card').forEach(card => card.style.boxShadow = 'none');
+        event.currentTarget.closest('.song-card').style.boxShadow = '0 0 15px var(--accent-pink)';
+    }
+
+    function searchSongs() {
+        let filter = document.getElementById('search').value.toLowerCase();
+        let cards = document.querySelectorAll('.song-card');
+        let visibleCount = 0;
+
+        cards.forEach(card => {
+            let title = card.querySelector('strong').innerText.toLowerCase();
+            let artist = card.querySelector('p').innerText.toLowerCase();
+            if (title.includes(filter) || artist.includes(filter)) {
+                card.style.display = "block";
+                visibleCount++;
+            } else {
+                card.style.display = "none";
+            }
+        });
+        document.getElementById('noResults').style.display = visibleCount === 0 ? "block" : "none";
+    }
+</script>
+</body>
+</html>
